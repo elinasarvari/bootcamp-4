@@ -1,8 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
   const capabilitiesList = document.getElementById("capabilities-list");
-  const capabilitySelect = document.getElementById("capability");
-  const registerForm = document.getElementById("register-form");
-  const messageDiv = document.getElementById("message");
 
   // Function to fetch capabilities from API
   async function fetchCapabilities() {
@@ -13,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Clear loading message
       capabilitiesList.innerHTML = "";
 
-      // Populate capabilities list
+      // Populate capabilities list with registration form in each card
       Object.entries(capabilities).forEach(([name, details]) => {
         const capabilityCard = document.createElement("div");
         capabilityCard.className = "capability-card";
@@ -30,12 +27,24 @@ document.addEventListener("DOMContentLoaded", () => {
                 ${details.consultants
                   .map(
                     (email) =>
-                      `<li><span class="consultant-email">${email}</span><button class="delete-btn" data-capability="${name}" data-email="${email}">❌</button></li>`
+                      `<li><span class="consultant-email">${email}</span><button class="delete-btn" data-capability="${name}" data-email="${email}" title="Remove consultant">❌</button></li>`
                   )
                   .join("")}
               </ul>
             </div>`
             : `<p><em>No consultants registered yet</em></p>`;
+
+        // Registration form for this capability
+        const registerFormHTML = `
+          <form class="register-form" data-capability="${name}">
+            <div class="form-group">
+              <label for="email-${name}">Consultant Email:</label>
+              <input type="email" id="email-${name}" required placeholder="your-email@slalom.com" />
+            </div>
+            <button type="submit" title="Register for ${name}">Register Expertise</button>
+            <div class="message hidden"></div>
+          </form>
+        `;
 
         capabilityCard.innerHTML = `
           <h4>${name}</h4>
@@ -47,15 +56,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="consultants-container">
             ${consultantsHTML}
           </div>
+          <div class="register-container">
+            ${registerFormHTML}
+          </div>
         `;
 
         capabilitiesList.appendChild(capabilityCard);
-
-        // Add option to select dropdown
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        capabilitySelect.appendChild(option);
       });
 
       // Add event listeners to delete buttons
@@ -112,48 +118,49 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Handle form submission
-  registerForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
+  // Handle registration for each capability
+  capabilitiesList.addEventListener("submit", async (event) => {
+    if (event.target.classList.contains("register-form")) {
+      event.preventDefault();
+      const form = event.target;
+      const capability = form.getAttribute("data-capability");
+      const emailInput = form.querySelector("input[type='email']");
+      const email = emailInput.value.trim();
+      const messageDiv = form.querySelector(".message");
 
-    const email = document.getElementById("email").value;
-    const capability = document.getElementById("capability").value;
+      messageDiv.classList.remove("success", "error", "info");
+      messageDiv.classList.add("hidden");
 
-    try {
-      const response = await fetch(
-        `/capabilities/${encodeURIComponent(
-          capability
-        )}/register?email=${encodeURIComponent(email)}`,
-        {
-          method: "POST",
-        }
-      );
-
-      const result = await response.json();
-
-      if (response.ok) {
-        messageDiv.textContent = result.message;
-        messageDiv.className = "success";
-        registerForm.reset();
-
-        // Refresh capabilities list to show updated consultants
-        fetchCapabilities();
-      } else {
-        messageDiv.textContent = result.detail || "An error occurred";
-        messageDiv.className = "error";
+      if (!email) {
+        messageDiv.textContent = "Please enter a valid email.";
+        messageDiv.classList.add("error");
+        messageDiv.classList.remove("hidden");
+        return;
       }
 
-      messageDiv.classList.remove("hidden");
-
-      // Hide message after 5 seconds
-      setTimeout(() => {
-        messageDiv.classList.add("hidden");
-      }, 5000);
-    } catch (error) {
-      messageDiv.textContent = "Failed to register. Please try again.";
-      messageDiv.className = "error";
-      messageDiv.classList.remove("hidden");
-      console.error("Error registering:", error);
+      try {
+        const response = await fetch("/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, capability })
+        });
+        const result = await response.json();
+        if (response.ok) {
+          messageDiv.textContent = "Registration successful!";
+          messageDiv.classList.add("success");
+          messageDiv.classList.remove("hidden");
+          form.reset();
+          fetchCapabilities(); // Refresh list
+        } else {
+          messageDiv.textContent = result.error || "Registration failed.";
+          messageDiv.classList.add("error");
+          messageDiv.classList.remove("hidden");
+        }
+      } catch (err) {
+        messageDiv.textContent = "Network error. Please try again.";
+        messageDiv.classList.add("error");
+        messageDiv.classList.remove("hidden");
+      }
     }
   });
 
