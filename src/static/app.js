@@ -157,6 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
           messageDiv.classList.remove("hidden");
         }
       } catch (err) {
+        console.error('Registration error:', err);
         messageDiv.textContent = "Network error. Please try again.";
         messageDiv.classList.add("error");
         messageDiv.classList.remove("hidden");
